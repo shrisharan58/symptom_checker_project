@@ -3,12 +3,12 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from nltk.tokenize import word_tokenize
 import string
-from flask import Flask, request, jsonify, render_template
+import random
 
-# Load the new dataset
-
+# Load dataset
 df = pd.read_csv("symptom_medicine.csv")
 
+# Preprocessing
 def preprocess(text):
     text = text.lower()
     text = ''.join([char for char in text if char not in string.punctuation])
@@ -17,46 +17,35 @@ def preprocess(text):
 
 df['processed_symptoms'] = df['Symptom'].apply(preprocess)
 
+# TF-IDF Vectorization
 vectorizer = TfidfVectorizer()
 X = vectorizer.fit_transform(df['processed_symptoms'])
 y = df['Disease']
 
+# Train a simple Naive Bayes classifier
 model = MultinomialNB()
 model.fit(X, y)
 
-# Create lookup dictionaries for medicine and advice
+# Add these lookups after you load df
 medicine_dict = {row['Symptom'].strip().lower(): row['Medicine'] for _, row in df.iterrows()}
 advice_dict = {row['Symptom'].strip().lower(): row['Treatment_Advice'] for _, row in df.iterrows()}
-disease_dict = {row['Symptom'].strip().lower(): row['Disease'] for _, row in df.iterrows()}
 
+# Chatbot Function
 def symptom_checker(user_input):
-    # Split input by comma for multi-symptom
-    symptoms = [s.strip().lower() for s in user_input.split(',') if s.strip()]
-    results = []
-    for symptom in symptoms:
-        processed_input = preprocess(symptom)
-        # Try to match symptom in CSV
-        disease = disease_dict.get(symptom, None)
-        medicine = medicine_dict.get(symptom, None)
-        advice = advice_dict.get(symptom, None)
-        if disease and medicine and advice:
-            results.append({
-                "symptom": symptom,
-                "disease": disease,
-                "medicine": medicine,
-                "advice": advice
-            })
-        else:
-            # Fallback: use model prediction for unknown symptom
-            input_vector = vectorizer.transform([processed_input])
-            predicted_disease = model.predict(input_vector)[0]
-            results.append({
-                "symptom": symptom,
-                "disease": predicted_disease,
-                "medicine": "Consult a healthcare professional for appropriate medicine.",
-                "advice": "Consult a healthcare professional for advice."
-            })
-    return results
+    processed_input = preprocess(user_input)
+    input_vector = vectorizer.transform([processed_input])
+    predicted_disease = model.predict(input_vector)[0]
+    # Find medicine and advice by symptom (case-insensitive)
+    med = medicine_dict.get(user_input.strip().lower(), 'Consult a healthcare professional for appropriate medicine.')
+    advice = advice_dict.get(user_input.strip().lower(), 'Consult a healthcare professional for advice.')
+    return {
+        "disease": predicted_disease,
+        "medicine": med,
+        "advice": advice
+    }
+
+# Simple Flask Web App
+from flask import Flask, request, jsonify, render_template
 
 app = Flask(__name__)
 
@@ -67,8 +56,17 @@ def home():
 @app.route("/predict", methods=["POST"])
 def predict():
     user_input = request.form.get("symptoms")
-    results = symptom_checker(user_input)
-    return jsonify(results)
+    result = symptom_checker(user_input)
+    return jsonify(result)
+
+@app.route('/analyze_image', methods=['POST'])
+def analyze_image():
+    file = request.files.get('image')
+    if file:
+        # Save or process the image here
+        # For now, just return a placeholder response
+        return jsonify({'analysis': 'Image received. (No analysis implemented yet.)'})
+    return jsonify({'analysis': 'No image received.'}), 400
 
 if __name__ == "__main__":
-    app.run(debug=True) 
+    app.run(debug=True)
