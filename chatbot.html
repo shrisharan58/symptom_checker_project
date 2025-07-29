@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Symptom Checker Bot</title>
+    <style>
+        body {
+            font-family: Arial;
+            background: #e3f2fd;
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        #center-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+        }
+        #front-image {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+        #front-image img {
+            max-width: 260px;
+            width: 100%;
+            height: auto;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+        h1 {
+            text-align: center;
+        }
+        .form-box {
+            background: #fff;
+            padding: 32px 32px 24px 32px;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            margin-bottom: 24px;
+            min-width: 340px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .form-box input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 12px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        .form-box button {
+            width: 100%;
+            padding: 10px;
+            background: #1976d2;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-bottom: 8px;
+        }
+        .form-toggle {
+            text-align: center;
+            margin-top: 8px;
+        }
+        .form-toggle button {
+            background: none;
+            color: #1976d2;
+            border: none;
+            cursor: pointer;
+            text-decoration: underline;
+            font-size: 14px;
+            margin: 0;
+            padding: 0;
+        }
+        .error-message {
+            color: #d32f2f;
+            margin-bottom: 10px;
+            font-size: 15px;
+            text-align: center;
+        }
+        #chatbot-section {
+            display: none;
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        #chatbox {
+            border: 1px solid #ccc;
+            height: 300px;
+            overflow-y: scroll;
+            padding: 10px;
+            background: #f9f9f9;
+        }
+        .progress-bar {
+            width: 100%;
+            background: #eee;
+            border-radius: 8px;
+            margin-top: 4px;
+            margin-bottom: 8px;
+            height: 18px;
+            overflow: hidden;
+        }
+        .progress {
+            height: 100%;
+            background: #4caf50;
+            width: 0%;
+            color: #fff;
+            text-align: center;
+            line-height: 18px;
+            border-radius: 8px 0 0 8px;
+            transition: width 0.5s;
+        }
+        @media (max-width: 500px) {
+            .form-box, #chatbot-section { min-width: unset; width: 95vw; }
+            #front-image img { max-width: 95vw; }
+        }
+    </style>
+</head>
+<body>
+    <div id="center-container">
+        <div id="front-image">
+            <img src="https://miro.medium.com/v2/resize:fit:1200/1*3SoRXt3M9HxSLzfLIPqx4Q.png" alt="Medical Chatbot Front Image" style="max-width:260px;width:100%;height:auto;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin-bottom:18px;">
+        </div>
+        <h1>Healthcare Symptom Checker</h1>
+        <div id="login-register-container">
+            <div id="login-form" class="form-box">
+                <div id="login-error" class="error-message"></div>
+                <input type="email" id="loginEmail" placeholder="Email" required>
+                <input type="password" id="loginPassword" placeholder="Password" required>
+                <button onclick="loginPatient()">Login</button>
+                <div class="form-toggle">
+                    <span>Don't have an account?</span>
+                    <button onclick="showRegister()">Register</button>
+                </div>
+            </div>
+            <div id="register-form" class="form-box" style="display:none;">
+                <div id="register-error" class="error-message"></div>
+                <input type="text" id="registerName" placeholder="Patient Name" required>
+                <input type="number" id="registerAge" placeholder="Age" min="0" required>
+                <input type="date" id="registerDOB" placeholder="Date of Birth" required>
+                <input type="email" id="registerEmail" placeholder="Email" required>
+                <input type="password" id="registerPassword" placeholder="Password" required>
+                <input type="password" id="registerConfirmPassword" placeholder="Confirm Password" required>
+                <button onclick="registerPatient()">Register</button>
+                <div class="form-toggle">
+                    <span>Already have an account?</span>
+                    <button onclick="showLogin()">Login</button>
+                </div>
+            </div>
+        </div>
+        <div id="chatbot-section">
+            <button id="viewHistoryBtn" style="margin-bottom:10px;display:none;">View History</button>
+            <div id="chatbox" style="display: flex; flex-direction: column;"></div>
+            <input type="text" id="userInput" placeholder="Enter symptoms (e.g., fever, cough)">
+            <button onclick="sendMessage()">Send</button>
+            <button id="micBtn" title="Speak"><span>🎤</span></button>
+        </div>
+    </div>
+    <script>
+        let patientInfo = {};
+        let lastDisease = null;
+        let lastCure = null;
+        function showRegister() {
+            document.getElementById('login-form').style.display = 'none';
+            document.getElementById('register-form').style.display = 'flex';
+            document.getElementById('login-error').innerText = '';
+        }
+        function showLogin() {
+            document.getElementById('register-form').style.display = 'none';
+            document.getElementById('login-form').style.display = 'flex';
+            document.getElementById('register-error').innerText = '';
+        }
+        function getUsers() {
+            return JSON.parse(localStorage.getItem('users') || '[]');
+        }
+        function saveUsers(users) {
+            localStorage.setItem('users', JSON.stringify(users));
+        }
+        function registerPatient() {
+            const name = document.getElementById("registerName").value.trim();
+            const age = document.getElementById("registerAge").value.trim();
+            const dob = document.getElementById("registerDOB").value.trim();
+            const email = document.getElementById("registerEmail").value.trim();
+            const password = document.getElementById("registerPassword").value;
+            const confirmPassword = document.getElementById("registerConfirmPassword").value;
+            const errorDiv = document.getElementById('register-error');
+            errorDiv.innerText = '';
+            if (!name || !age || !dob || !email || !password || !confirmPassword) {
+                errorDiv.innerText = "Please fill in all registration details.";
+                return;
+            }
+            if (!/^\d+$/.test(age)) {
+                errorDiv.innerText = "Age must be a number.";
+                return;
+            }
+            if (!email.endsWith('@gmail.com')) {
+                errorDiv.innerText = "Email must end with @gmail.com.";
+                return;
+            }
+            if (password !== confirmPassword) {
+                errorDiv.innerText = "Passwords do not match.";
+                return;
+            }
+            let users = getUsers();
+            if (users.some(u => u.email === email)) {
+                errorDiv.innerText = "This email is already registered.";
+                return;
+            }
+            const user = { name, age, dob, email, password };
+            users.push(user);
+            saveUsers(users);
+            alert('Registration successful! Please login.');
+            showLogin();
+        }
+        function loginPatient() {
+            const email = document.getElementById("loginEmail").value.trim();
+            const password = document.getElementById("loginPassword").value;
+            const errorDiv = document.getElementById('login-error');
+            errorDiv.innerText = '';
+            if (!email || !password) {
+                errorDiv.innerText = "Please fill in all login details.";
+                return;
+            }
+            if (!email.endsWith('@gmail.com')) {
+                errorDiv.innerText = "Email must end with @gmail.com.";
+                return;
+            }
+            let users = getUsers();
+            const user = users.find(u => u.email === email && u.password === password);
+            if (!user) {
+                errorDiv.innerText = "Invalid email or password, or user not registered.";
+                return;
+            }
+            patientInfo = user;
+            document.getElementById("login-register-container").style.display = "none";
+            document.getElementById("chatbot-section").style.display = "block";
+            document.getElementById("viewHistoryBtn").style.display = "block";
+        }
+        function isSymptomInput(text) {
+            // Simple check: if text contains a comma or common symptom words, treat as symptoms
+            const symptomWords = ['fever', 'cough', 'pain', 'cold', 'headache', 'sore', 'throat', 'vomit', 'nausea', 'chills', 'fatigue', 'rash', 'diarrhea'];
+            if (text.includes(',')) return true;
+            for (let word of symptomWords) {
+                if (text.toLowerCase().includes(word)) return true;
+            }
+            return false;
+        }
+        function isCureRequest(text) {
+            return /\bcure\b|what.*cure|how.*treat|treatment/i.test(text);
+        }
+        function saveToHistory(user, userMsg, botMsg) {
+            if (!user || !user.email) return;
+            const key = `chat_history_${user.email}`;
+            let history = JSON.parse(localStorage.getItem(key) || '[]');
+            history.push({ user: userMsg, bot: botMsg, time: new Date().toISOString() });
+            localStorage.setItem(key, JSON.stringify(history));
+        }
+        function sendMessage() {
+            const userInput = document.getElementById("userInput").value;
+            if (!userInput) {
+                alert("Please enter your symptoms or message.");
+                return;
+            }
+            const chatbox = document.getElementById("chatbox");
+            // User message left
+            const userMsg = document.createElement('div');
+            userMsg.style.display = 'flex';
+            userMsg.style.justifyContent = 'flex-start';
+            userMsg.innerHTML = `<div style='background:#e3f2fd;padding:8px 16px;border-radius:16px 16px 16px 0;max-width:60%;margin:4px 0;font-weight:bold;'>You: <span style='font-weight:normal;'>${userInput}</span></div>`;
+            chatbox.appendChild(userMsg);
+            chatbox.scrollTop = chatbox.scrollHeight;
+            document.getElementById("userInput").value = "";
+            // If input is a cure request
+            if (isCureRequest(userInput)) {
+                if (lastDisease && lastCure) {
+                    const botMsg = document.createElement('div');
+                    botMsg.style.display = 'flex';
+                    botMsg.style.justifyContent = 'flex-end';
+                    botMsg.innerHTML = `<div style='background:#fff;padding:8px 16px;border-radius:16px 16px 0 16px;max-width:60%;margin:4px 0;font-weight:bold;text-align:right;'>Bot: <b>Cure for ${lastDisease}:</b><br><span style='font-weight:normal;'>${lastCure}</span></div>`;
+                    chatbox.appendChild(botMsg);
+                    chatbox.scrollTop = chatbox.scrollHeight;
+                } else {
+                    const botMsg = document.createElement('div');
+                    botMsg.style.display = 'flex';
+                    botMsg.style.justifyContent = 'flex-end';
+                    botMsg.innerHTML = `<div style='background:#fff;padding:8px 16px;border-radius:16px 16px 0 16px;max-width:60%;margin:4px 0;font-weight:bold;text-align:right;'>Bot: <span style='font-weight:normal;'>Please provide your symptoms first so I can suggest a cure.</span></div>`;
+                    chatbox.appendChild(botMsg);
+                    chatbox.scrollTop = chatbox.scrollHeight;
+                }
+                return;
+            }
+            // If input is a greeting or not symptoms, reply conversationally
+            if (!isSymptomInput(userInput)) {
+                let botReply = '';
+                if (/\bhi\b|\bhello\b|\bhey\b/i.test(userInput)) {
+                    botReply = "Hello! How can I assist you with your symptoms today?";
+                } else {
+                    botReply = "I'm here to help. Please describe your symptoms (e.g., fever, cough).";
+                }
+                // Bot message right
+                const botMsg = document.createElement('div');
+                botMsg.style.display = 'flex';
+                botMsg.style.justifyContent = 'flex-end';
+                botMsg.innerHTML = `<div style='background:#fff;padding:8px 16px;border-radius:16px 16px 0 16px;max-width:60%;margin:4px 0;font-weight:bold;text-align:right;'>Bot: <span style='font-weight:normal;'>${botReply}</span></div>`;
+                chatbox.appendChild(botMsg);
+                chatbox.scrollTop = chatbox.scrollHeight;
+                return;
+            }
+            // Otherwise, fetch prediction
+            fetch("/predict", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: `symptoms=${encodeURIComponent(userInput)}&name=${encodeURIComponent(patientInfo.name)}&age=${encodeURIComponent(patientInfo.age)}&dob=${encodeURIComponent(patientInfo.dob)}&email=${encodeURIComponent(patientInfo.email)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                // data is now an array of results (one per symptom)
+                let botHtml = "<div style='background:#fff;padding:8px 16px;border-radius:16px 16px 0 16px;max-width:60%;margin:4px 0;font-weight:bold;text-align:right;'>";
+                let botTextToSpeak = '';
+                if (Array.isArray(data)) {
+                    data.forEach(result => {
+                        botHtml += `Symptom: <b>${result.symptom}</b><br>Disease: <b>${result.disease}</b><br><span style='font-weight:normal;'>Medicine: ${result.medicine || 'N/A'}</span><br><span style='font-weight:normal;'>Advice: ${result.advice || 'N/A'}</span><br><br>`;
+                        botTextToSpeak += `For symptom ${result.symptom}, the disease is ${result.disease}. Medicine: ${result.medicine || 'N/A'}. Advice: ${result.advice || 'N/A'}. `;
+                    });
+                } else {
+                    botHtml += `Disease: <b>${data.disease}</b><br><span style='font-weight:normal;'>Medicine: ${data.medicine || 'N/A'}</span><br><span style='font-weight:normal;'>Advice: ${data.advice || 'N/A'}</span>`;
+                    botTextToSpeak = `Disease: ${data.disease}. Medicine: ${data.medicine || 'N/A'}. Advice: ${data.advice || 'N/A'}.`;
+                }
+                botHtml += "</div>";
+                const botMsg = document.createElement('div');
+                botMsg.style.display = 'flex';
+                botMsg.style.justifyContent = 'flex-end';
+                botMsg.innerHTML = botHtml;
+                chatbox.appendChild(botMsg);
+                chatbox.scrollTop = chatbox.scrollHeight;
+                saveToHistory(patientInfo, userInput, botHtml);
+                // Voice output for bot response
+                if ('speechSynthesis' in window && botTextToSpeak) {
+                    const utterance = new SpeechSynthesisUtterance(botTextToSpeak);
+                    utterance.lang = 'en-US';
+                    window.speechSynthesis.speak(utterance);
+                }
+            });
+        }
+        function speakBotResponse(text) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'en-US';
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+        const micBtn = document.getElementById('micBtn');
+        const userInput = document.getElementById('userInput');
+        let recognition;
+
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.lang = 'en-US';
+            recognition.onresult = function(event) {
+                userInput.value = event.results[0][0].transcript;
+            };
+            micBtn.onclick = function() {
+                recognition.start();
+            };
+        } else {
+            micBtn.style.display = 'none'; // Hide if not supported
+        }
+
+        document.getElementById('viewHistoryBtn').onclick = function() {
+            if (!patientInfo || !patientInfo.email) return;
+            const key = `chat_history_${patientInfo.email}`;
+            let history = JSON.parse(localStorage.getItem(key) || '[]');
+            if (history.length === 0) {
+                alert('No conversation history found.');
+                return;
+            }
+            let msg = '';
+            history.forEach((item, idx) => {
+                msg += `Q${idx+1}: ${item.user}\nA${idx+1}: ${item.bot.replace(/<[^>]+>/g, '')}\n\n`;
+            });
+            alert(msg);
+        };
+    </script>
+</body>
+</html>
